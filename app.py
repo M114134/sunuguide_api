@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
 from pydantic import BaseModel
 from models.data_preprocessor import DataPreprocessor
 from models.distance_calculator import DistanceCalculator
@@ -6,28 +6,25 @@ from models.taxi_price_calculator import TaxiPriceCalculator
 from models.scoring_model import ScoringModel
 from models.search_engine import SearchEngine
 import pandas as pd
-from dotenv import load_dotenv
-import os
-
-# --- Charger la clé ORS depuis le fichier .env ---
-load_dotenv()
-ORS_API_KEY = os.getenv("ORS_API_KEY")
-
-if not ORS_API_KEY:
-    raise ValueError("❌ La clé ORS_API_KEY n'est pas définie dans le fichier .env")
 
 # --- Configuration de l'application ---
-app = FastAPI(title="SunuGuide Model API", version="1.0")
+app = FastAPI(title="SunuGuide Model API", version="2.0")
+
+# --- Clé API OpenRouteService ---
+ORS_API_KEY = "eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6IjQ4YzZhZDMzMTcwOTRmOGFiZmQ3MzI5ZjgxYzcxOGIyIiwiaCI6Im11cm11cjY0In0="
 
 # --- Chargement des données et initialisation des modèles ---
 print("📦 Chargement des données...")
 df = pd.read_csv("sunuguide_clean_standard.csv")
+
 preprocessor = DataPreprocessor(df)
 df = preprocessor.clean_data().create_features().get_data()
 
 print("🤖 Initialisation du modèle...")
+distance_calculator = DistanceCalculator(ORS_API_KEY)
 scoring_model = ScoringModel(df, ORS_API_KEY)
 search_engine = SearchEngine(df, scoring_model)
+taxi_price_calculator = TaxiPriceCalculator()
 
 # --- Schéma d’entrée ---
 class RequestData(BaseModel):
@@ -47,6 +44,7 @@ def predict(data: RequestData):
     arrivee = data.arrivee
     preference = data.preference.lower()
 
+    # Recherche des trajets correspondants
     recommendations, corrections = search_engine.find_routes(depart, arrivee, preference)
 
     if recommendations is None or len(recommendations) == 0:
@@ -55,9 +53,33 @@ def predict(data: RequestData):
             "corrections": corrections
         }
 
-    results = recommendations.to_dict(orient="records")
+    results = []
+    for _, row in recommendations.iterrows():
+        try:
+            # Exemple de coordonnées fictives (à remplacer par tes vraies lat/lon si tu les as dans le CSV)
+            depart_coords = [14.6937, -17.4441]   # Dakar par exemple
+            arrivee_coords = [14.7167, -17.4677]  # Plateau par exemple
+
+            distance_info = distance_calculator.get_distance(depart_coords, arrivee_coords)
+
+            distance_km = distance_info["distance_km"]
+            duree_min = distance_info["duree_min"]
+
+            prix_estime = taxi_price_calculator.estimate_price(distance_km)
+
+            results.append({
+                "transport": row.get("type", "N/A"),
+                "depart": depart,
+                "arrivee": arrivee,
+                "distance_km": distance_km,
+                "duree_min": duree_min,
+                "prix_estime": prix_estime
+            })
+        except Exception as e:
+            print(f"Erreur calcul trajet : {e}")
+
     return {
-        "message": "Recommandations trouvées ✅",
+        "message": "Recommandations calculées ✅",
         "corrections": corrections,
         "results": results
     }
