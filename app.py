@@ -68,13 +68,14 @@ def predict(data: RequestData):
             prix_estime = taxi_price_calculator.estimate_price(distance_km)
 
             results.append({
-                "transport": row.get("type", "N/A"),
-                "depart": depart,
-                "arrivee": arrivee,
-                "distance_km": distance_km,
-                "duree_min": duree_min,
-                "prix_estime": prix_estime
-            })
+    "transport": row.get("type transport", "N/A"),
+    "depart": depart,
+    "arrivee": arrivee,
+    "distance_km": distance_km,
+    "duree_min": duree_min,
+    "prix_estime": prix_estime
+})
+
         except Exception as e:
             print(f"Erreur calcul trajet : {e}")
 
