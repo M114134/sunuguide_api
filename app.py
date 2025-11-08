@@ -1,3 +1,5 @@
+# app.py
+
 from fastapi import FastAPI
 from pydantic import BaseModel
 from models.data_preprocessor import DataPreprocessor
@@ -11,7 +13,7 @@ import pandas as pd
 app = FastAPI(title="SunuGuide Model API", version="2.0")
 
 # --- Clé API OpenRouteService ---
-ORS_API_KEY = "eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6IjQ4YzZhZDMzMTcwOTRmOGFiZmQ3MzI5ZjgxYzcxOGIyIiwiaCI6Im11cm11cjY0In0="
+ORS_API_KEY = "TA_CLE_API_ICI"
 
 # --- Chargement des données et initialisation des modèles ---
 print("📦 Chargement des données...")
@@ -40,8 +42,8 @@ def root():
 # --- Endpoint de prédiction ---
 @app.post("/predict")
 def predict(data: RequestData):
-    depart = data.depart
-    arrivee = data.arrivee
+    depart = data.depart.strip().lower()
+    arrivee = data.arrivee.strip().lower()
     preference = data.preference.lower()
 
     # Recherche des trajets correspondants
@@ -56,25 +58,24 @@ def predict(data: RequestData):
     results = []
     for _, row in recommendations.iterrows():
         try:
-            # Exemple de coordonnées fictives (à remplacer par tes vraies lat/lon si tu les as dans le CSV)
-            depart_coords = [14.6937, -17.4441]   # Dakar par exemple
-            arrivee_coords = [14.7167, -17.4677]  # Plateau par exemple
+            # Si vous n'avez pas les coordonnées exactes, vous pouvez générer ou utiliser des valeurs fictives
+            depart_coords = [14.6937, -17.4441]   # Exemple Dakar
+            arrivee_coords = [14.7167, -17.4677]  # Exemple Plateau
 
             distance_info = distance_calculator.get_distance(depart_coords, arrivee_coords)
-
             distance_km = distance_info["distance_km"]
             duree_min = distance_info["duree_min"]
 
             prix_estime = taxi_price_calculator.estimate_price(distance_km)
 
             results.append({
-    "transport": row.get("type transport", "N/A"),
-    "depart": depart,
-    "arrivee": arrivee,
-    "distance_km": distance_km,
-    "duree_min": duree_min,
-    "prix_estime": prix_estime
-})
+                "transport": row.get("type transport", "N/A"),
+                "depart": depart.capitalize(),
+                "arrivee": arrivee.capitalize(),
+                "distance_km": distance_km,
+                "duree_min": duree_min,
+                "prix_estime": prix_estime
+            })
 
         except Exception as e:
             print(f"Erreur calcul trajet : {e}")

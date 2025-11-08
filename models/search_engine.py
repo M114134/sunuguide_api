@@ -4,24 +4,22 @@ class SearchEngine:
         self.scoring_model = scoring_model
 
     def find_routes(self, depart, arrivee, preference="équilibré"):
-        # chercher les trajets correspondants
         result = self.scoring_model.get_recommendations(depart, arrivee, preference)
         corrections = {}
 
-        if result is None:
-            # suggestions de corrections (ex: erreur d’orthographe)
+        if result is None or result.empty:
             corrections = self._suggest_corrections(depart, arrivee)
             return None, corrections
 
         return result, corrections
 
     def _suggest_corrections(self, depart, arrivee):
+        from difflib import get_close_matches
         all_stops = set(self.df["depart"].unique()) | set(self.df["arrivee"].unique())
         corrections = {}
 
         def closest_match(word):
-            from difflib import get_close_matches
-            match = get_close_matches(word, all_stops, n=1, cutoff=0.6)
+            match = get_close_matches(word.lower(), all_stops, n=1, cutoff=0.6)
             return match[0] if match else None
 
         suggestion_depart = closest_match(depart)
